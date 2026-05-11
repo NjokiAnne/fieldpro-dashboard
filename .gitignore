@@ -1,0 +1,26 @@
+﻿# Secrets — NEVER commit these
+oauth-credentials.json
+token.pickle
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Streamlit cache
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Test/exploration scripts (optional but cleaner)
+hello.py
+test_ga4.py
+test_ga4_combined.py
+test_searchconsole.py
+test_brand_split.py

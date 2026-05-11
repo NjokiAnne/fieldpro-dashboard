@@ -1,0 +1,9 @@
+[theme]
+# FieldPro brand colors
+primaryColor = "#FEBD55"
+backgroundColor = "#FAFAF6"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#18222A"
+base = "light"
+font = "sans serif"
+
