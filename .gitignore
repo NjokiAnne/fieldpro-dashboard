@@ -24,3 +24,6 @@ test_ga4.py
 test_ga4_combined.py
 test_searchconsole.py
 test_brand_split.py
+
+extract_token.py
+

@@ -1,7 +1,9 @@
 """
-First connection test for the FieldPro dashboard.
-Opens a browser, asks you to log in with Google, and saves a token.
-Run this once. After that, the saved token is reused automatically.
+Authentication for the FieldPro dashboard.
+
+Works in two environments:
+  1. Local: uses oauth-credentials.json + token.pickle (interactive browser auth)
+  2. Streamlit Cloud: uses st.secrets["oauth_token"] (pre-generated token, no browser)
 """
 
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -9,32 +11,57 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 import os
 import pickle
+import json
 
-# What we're asking permission to read.
-# - analytics.readonly = read-only access to Google Analytics
-# - webmasters.readonly = read-only access to Search Console
 SCOPES = [
     "https://www.googleapis.com/auth/analytics.readonly",
     "https://www.googleapis.com/auth/webmasters.readonly",
 ]
 
-# Path to the credentials file you downloaded from Google Cloud
 CREDENTIALS_FILE = "oauth-credentials.json"
-
-# Where to save the access token after you log in (so you don't have to log in again next time)
 TOKEN_FILE = "token.pickle"
 
 
-def get_credentials():
-    """Returns a credentials object that can be used to call Google APIs."""
+def _running_in_streamlit_cloud():
+    """Detect if we're running on Streamlit Cloud (has st.secrets configured)."""
+    try:
+        import streamlit as st
+        # On Streamlit Cloud, st.secrets exists and contains our token
+        return "oauth_token" in st.secrets
+    except Exception:
+        return False
+
+
+def _credentials_from_streamlit_secrets():
+    """Build a Credentials object from values stored in Streamlit secrets."""
+    import streamlit as st
+
+    token_data = dict(st.secrets["oauth_token"])
+
+    creds = Credentials(
+        token=token_data.get("token"),
+        refresh_token=token_data.get("refresh_token"),
+        token_uri=token_data.get("token_uri"),
+        client_id=token_data.get("client_id"),
+        client_secret=token_data.get("client_secret"),
+        scopes=token_data.get("scopes"),
+    )
+
+    # Always refresh on cloud — tokens may have expired since last refresh
+    if creds.expired or not creds.valid:
+        creds.refresh(Request())
+
+    return creds
+
+
+def _credentials_from_local_file():
+    """Local development flow — interactive browser auth."""
     creds = None
 
-    # If we already saved a token from a previous run, load it
     if os.path.exists(TOKEN_FILE):
         with open(TOKEN_FILE, "rb") as token:
             creds = pickle.load(token)
 
-    # If the token is expired or doesn't exist, do the login flow
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("Token expired — refreshing...")
@@ -44,7 +71,6 @@ def get_credentials():
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
 
-        # Save the token for next time
         with open(TOKEN_FILE, "wb") as token:
             pickle.dump(creds, token)
             print("Token saved.")
@@ -52,10 +78,17 @@ def get_credentials():
     return creds
 
 
+def get_credentials():
+    """Returns Google API credentials, using whichever path works in this environment."""
+    if _running_in_streamlit_cloud():
+        return _credentials_from_streamlit_secrets()
+    return _credentials_from_local_file()
+
+
 if __name__ == "__main__":
     print("Starting authentication...")
     creds = get_credentials()
     print()
     print("✓ Authentication successful!")
-    print(f"  Logged in as: {creds.client_id[:20]}...")
-    print(f"  Token saved to: {TOKEN_FILE}")
+    if hasattr(creds, "client_id") and creds.client_id:
+        print(f"  Client: {creds.client_id[:25]}...")
